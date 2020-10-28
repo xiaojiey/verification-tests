@@ -1,0 +1,71 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-e8-scan1
+  annotations:
+    policy.open-cluster-management.io/standards: NIST SP 800-53
+    policy.open-cluster-management.io/categories: CM Configuration Management
+    policy.open-cluster-management.io/controls: CM-6 Configuration Settings
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: compliance.openshift.io/v1alpha1
+        kind: ScanSetting
+        metadata:
+          name: myss
+        # Suite-specific settings
+        autoApplyRemediations: true
+        schedule: "0 1 * * *"
+        # Scan-specific settings
+        rawResultStorage:
+          size: "2Gi"
+          rotation: 10
+        # For each role, a separate scan will be created pointing
+        # to a node-role specified in roles
+        roles:
+          - worker
+          - master
+    - objectDefinition:
+        apiVersion: compliance.openshift.io/v1alpha1
+        kind: ScanSettingBinding
+        metadata:
+          name: e81
+          namespace: openshift-compliance
+        profiles:
+        - apiGroup: compliance.openshift.io/v1alpha1
+          kind: Profile
+          name: ocp4-e8
+        - apiGroup: compliance.openshift.io/v1alpha1
+          kind: Profile
+          name: rhcos4-e8
+        settingsRef:
+          apiGroup: compliance.openshift.io/v1alpha1
+          kind: ScanSetting
+          name: myss
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: binding-policy-e8-scan1
+placementRef:
+  name: placement-policy-e8-scan1
+  kind: PlacementRule
+  apiGroup: apps.open-cluster-management.io
+subjects:
+- name: policy-e8-scan1
+  kind: Policy
+  apiGroup: policy.open-cluster-management.io
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: placement-policy-e8-scan1
+spec:
+  clusterConditions:
+  - status: "True"
+    type: ManagedClusterConditionAvailable
+  clusterSelector:
+    matchExpressions:
+      - {key: vendor, operator: In, values: ["OpenShift"]}
